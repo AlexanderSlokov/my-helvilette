@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - The rune halo is a full circle. It passes in front of the body; the rune marks show only outside the body.
-- The front legs look like the artwork: each leg is one curved line that is thin at both ends, like a brush stroke, and each paw is a short curve out from the wrist. When a paw lifts or goes to the mouse, the leg bends. Before, the legs were straight lines of equal width.
+- The front legs look like cat legs, not stick lines. Each leg has two side lines that are wide at the shoulder and narrow at the wrist, and the lines start thin so that the leg grows out of the chest. A round paw joins the two lines and sits on the keyboard. The inside of the leg hides the lines behind it. When a paw lifts or goes to the mouse, the leg bends.
 
 ### Fixed
 

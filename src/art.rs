@@ -79,14 +79,18 @@ const BARS: [[f32; 4]; 7] = [
 ];
 const RING_C: P = (1388.0, 714.0);
 const RINGS: [f32; 2] = [232.0, 300.0];
-/// Front legs, traced from the artwork: each is one curved line that is thin at
-/// both ends, from the shoulder past the bend to the wrist.
-const SHOULDERS: [P; 2] = [(1360.0, 1115.0), (1490.0, 1062.0)];
-const LEG_BENDS: [P; 2] = [(1350.0, 1215.0), (1450.0, 1195.0)];
-/// Wrists at rest, on the keyboard. The paw curves out from the wrist.
-pub const PAW_REST: [P; 2] = [(1352.0, 1284.0), (1420.0, 1284.0)];
-/// Width of a leg line at its widest point.
-const LEG_W: f32 = 9.0;
+/// Front legs, from the leg lines of the artwork: the centre of each leg goes
+/// from the shoulder past the bend to the wrist.
+const SHOULDERS: [P; 2] = [(1318.0, 1105.0), (1515.0, 1065.0)];
+const LEG_BENDS: [P; 2] = [(1312.0, 1205.0), (1482.0, 1192.0)];
+/// Wrists at rest. The round paw below each wrist sits on the keyboard.
+pub const PAW_REST: [P; 2] = [(1318.0, 1270.0), (1450.0, 1270.0)];
+/// Half of the leg width at the shoulder and at the wrist.
+const LEG_HW: P = (40.0, 26.0);
+/// Height of the paw below the wrist.
+const PAW_H: f32 = 24.0;
+/// Width of a leg line.
+const LEG_W: f32 = 7.0;
 pub const MOUSE_REST: P = (1700.0, 1358.0);
 const MOUSE_R: P = (30.0, 42.0);
 pub const KEYBOARD: [f32; 4] = [1190.0, 1312.0, 1590.0, 1404.0];
@@ -413,18 +417,11 @@ impl Stroke {
         }
     }
 
-    /// An open line that is `w` wide in the middle and thin at both ends.
-    fn brush(pts: Vec<P>, w: f32, aa: f32) -> Self {
-        let n = pts.len();
-        let taper = (0..n)
-            .map(|i| {
-                w * (std::f32::consts::PI * i as f32 / (n - 1) as f32)
-                    .sin()
-                    .max(0.2)
-            })
-            .collect();
+    /// An open line with a width for each point, like a brush stroke.
+    fn brush(pts: Vec<P>, widths: Vec<f32>, aa: f32) -> Self {
+        let w = widths.iter().cloned().fold(0.0, f32::max);
         Stroke {
-            taper: Some(taper),
+            taper: Some(widths),
             ..Stroke::new(pts, false, w, Paint::Neon, aa)
         }
     }
@@ -473,6 +470,7 @@ struct Scene<'a> {
     key: Option<[f32; 4]>,
     mouse: Vec<Stroke>,
     front: Vec<Stroke>,
+    legs: Vec<Vec<P>>,
 }
 
 impl<'a> Scene<'a> {
@@ -580,24 +578,56 @@ impl<'a> Scene<'a> {
             ),
         ];
 
-        // Each front leg is a brush line from the shoulder to the wrist, and the
-        // paw is a short curve out from the wrist. When the wrist moves (a lifted
-        // paw, a paw on the mouse), the bend moves half as far, so the leg curves.
+        // Each front leg has two side lines: wide at the shoulder, narrow at the
+        // wrist, and thin at the top, so that the leg grows out of the chest.
+        // A round paw joins the two lines. The inside of the leg is dark, so the
+        // leg hides the lines behind it. When the wrist moves (a lifted paw, a
+        // paw on the mouse), the bend moves half as far, so the leg curves.
         let mut front = Vec::new();
+        let mut legs = Vec::new();
         for i in 0..2 {
             let (s, w, rest) = (SHOULDERS[i], pose.paws[i], PAW_REST[i]);
-            let bend = (
+            let b = (
                 LEG_BENDS[i].0 + (w.0 - rest.0) * 0.5,
                 LEG_BENDS[i].1 + (w.1 - rest.1) * 0.5,
             );
-            front.push(Stroke::brush(curve(s, bend, w), LEG_W, aa));
-            let out = if i == 0 { -1.0 } else { 1.0 };
-            let paw = curve(
-                w,
-                (w.0 + out * 18.0, w.1 + 14.0),
-                (w.0 + out * 48.0, w.1 + 6.0),
+            let mut sides = [Vec::new(), Vec::new()];
+            let mut widths = Vec::new();
+            for k in 0..=8 {
+                let t = k as f32 / 8.0;
+                let u = 1.0 - t;
+                let c = (
+                    u * u * s.0 + 2.0 * u * t * b.0 + t * t * w.0,
+                    u * u * s.1 + 2.0 * u * t * b.1 + t * t * w.1,
+                );
+                let d = (
+                    2.0 * u * (b.0 - s.0) + 2.0 * t * (w.0 - b.0),
+                    2.0 * u * (b.1 - s.1) + 2.0 * t * (w.1 - b.1),
+                );
+                let len = d.0.hypot(d.1).max(1e-3);
+                let hw = lerp(LEG_HW.0, LEG_HW.1, t);
+                let n = (-d.1 / len * hw, d.0 / len * hw);
+                sides[0].push((c.0 + n.0, c.1 + n.1));
+                sides[1].push((c.0 - n.0, c.1 - n.1));
+                widths.push(LEG_W * (t / 0.4).clamp(0.2, 1.0));
+            }
+            let (a, z) = (sides[0][8], sides[1][8]);
+            let toe = (w.0, w.1 + PAW_H);
+            let mut paw = curve(a, (a.0 + (a.0 - w.0) * 0.5, toe.1), toe);
+            paw.extend(
+                curve(toe, (z.0 + (z.0 - w.0) * 0.5, toe.1), z)
+                    .into_iter()
+                    .skip(1),
             );
-            front.push(Stroke::brush(paw, LEG_W * 0.8, aa));
+
+            let mut shape = sides[0].clone();
+            shape.extend(paw.iter().skip(1));
+            shape.extend(sides[1].iter().rev().skip(1));
+            legs.push(shape);
+            for side in sides {
+                front.push(Stroke::brush(side, widths.clone(), aa));
+            }
+            front.push(Stroke::new(paw, false, LEG_W, Paint::Neon, aa));
         }
 
         Scene {
@@ -610,6 +640,7 @@ impl<'a> Scene<'a> {
             key,
             mouse,
             front,
+            legs,
         }
     }
 
@@ -653,6 +684,9 @@ impl<'a> Scene<'a> {
             c = [0.0; 3];
         }
         self.mouse.iter().for_each(|s| s.add_to(p, &mut c));
+        if self.legs.iter().any(|leg| inside_poly(p, leg)) {
+            c = [0.0; 3];
+        }
         self.front.iter().for_each(|s| s.add_to(p, &mut c));
         c
     }
