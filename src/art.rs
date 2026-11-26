@@ -123,6 +123,10 @@ pub struct Pose {
     pub lamp: Option<P>,
     /// A torn row: image y and the shift in cells.
     pub glitch: Option<(f32, i32)>,
+    /// The True Self that is present: its rune glows (index in `RUNES`).
+    pub rune: Option<usize>,
+    /// Voided Out: 0 is normal light, 1 is full darkness.
+    pub dark: f32,
 }
 
 impl Default for Pose {
@@ -141,6 +145,8 @@ impl Default for Pose {
             key: None,
             lamp: None,
             glitch: None,
+            rune: None,
+            dark: 0.0,
         }
     }
 }
@@ -235,6 +241,7 @@ pub fn render(layout: &Layout, pose: &Pose) -> Vec<Cell> {
                     let gain = 0.8 + 0.5 * (-d2 / (180.0f32 * 180.0)).exp();
                     rgb.iter_mut().for_each(|v| *v *= gain);
                 }
+                rgb.iter_mut().for_each(|v| *v *= 1.0 - pose.dark);
                 *l = rgb[0].max(rgb[1]).max(rgb[2]).min(1.0);
                 (0..3).for_each(|i| sum[i] += rgb[i]);
             }
@@ -258,7 +265,61 @@ pub fn render(layout: &Layout, pose: &Pose) -> Vec<Cell> {
             }
         }
     }
+    runes(layout, pose, &mut cells);
     cells
+}
+
+/// The twelve True Selves of Helvilette and their runes, in their order on
+/// the halo: Othela at the top, then clockwise.
+pub const RUNES: [(char, &str); 12] = [
+    ('ᛟ', "Othela"),
+    ('ᚨ', "Ansuz"),
+    ('ᛗ', "Mannaz"),
+    ('ᛒ', "Berkano"),
+    ('ᛁ', "Isa"),
+    ('ᚹ', "Wunjo"),
+    ('ᛚ', "Laguz"),
+    ('ᚺ', "Hagalaz"),
+    ('ᚷ', "Gebo"),
+    ('ᛊ', "Sowilo"),
+    ('ᚱ', "Raidho"),
+    ('ᛏ', "Tiwaz"),
+];
+/// Radius of the band between the two circles of the halo.
+const RUNE_R: f32 = 266.0;
+
+/// Brightness of the light that runs around the halo, at angle `a`.
+fn shimmer(a: f32, t: f32) -> f32 {
+    use std::f32::consts::{PI, TAU};
+    let da = (a - t * 0.7 + PI).rem_euclid(TAU) - PI;
+    0.6 + 1.2 * (-(da * da) / 0.12).exp()
+}
+
+/// Puts the runes in the band of the halo, one cell each. A rune is a glyph, not
+/// geometry: at terminal sizes, a drawn rune is smaller than a few cells.
+fn runes(layout: &Layout, pose: &Pose, cells: &mut [Cell]) {
+    let cols = layout.cols as i32;
+    for (k, &(ch, _)) in RUNES.iter().enumerate() {
+        let a = (-90.0 + 30.0 * k as f32).to_radians();
+        let p = (RING_C.0 + RUNE_R * a.cos(), RING_C.1 + RUNE_R * a.sin());
+        let (c, r) = layout.to_cell(p);
+        if c < 0 || r < 0 || c >= cols || r >= layout.rows as i32 {
+            continue;
+        }
+        let lit = pose.rune == Some(k);
+        let color = if lit {
+            mix(neon(p.0), [1.0; 3], 0.55)
+        } else {
+            neon(p.0)
+        };
+        let level = if lit {
+            1.0
+        } else {
+            (0.3 + 0.35 * shimmer(a, pose.t)).min(1.0)
+        };
+        let rgb = color.map(|v| (v * level * (1.0 - pose.dark) * 255.0) as u8);
+        cells[(r * cols + c) as usize] = Cell { ch, rgb };
+    }
 }
 
 /// Selects a glyph and its color from the 2x2 samples of a cell.
@@ -463,7 +524,6 @@ impl Stroke {
 struct Scene<'a> {
     pose: &'a Pose,
     aa: f32,
-    outline: Vec<P>,
     body: Vec<Stroke>,
     eyes: [P; 2],
     keyboard: Vec<Stroke>,
@@ -488,7 +548,7 @@ impl<'a> Scene<'a> {
         let hp = |p: P| (p.0 + h.0, p.1 + h.1);
 
         let mut body = vec![
-            Stroke::new(outline.clone(), true, 7.0, Paint::Neon, aa),
+            Stroke::new(outline, true, 7.0, Paint::Neon, aa),
             Stroke::new(TAIL.to_vec(), false, 7.0, Paint::Neon, aa),
         ];
         for tri in NOSE {
@@ -633,7 +693,6 @@ impl<'a> Scene<'a> {
         Scene {
             pose,
             aa,
-            outline,
             body,
             eyes,
             keyboard,
@@ -646,7 +705,7 @@ impl<'a> Scene<'a> {
 
     fn sample(&self, p: P) -> Rgb {
         let mut c = [0.0; 3];
-        self.ring(p, inside_poly(p, &self.outline), &mut c);
+        self.ring(p, &mut c);
         self.body.iter().for_each(|s| s.add_to(p, &mut c));
         for [x0, y0, x1, y1] in BARS {
             if p.0 >= x0 && p.0 <= x1 && p.1 >= y0 && p.1 <= y1 {
@@ -691,28 +750,19 @@ impl<'a> Scene<'a> {
         c
     }
 
-    /// The rune halo: two full circles with a light that runs around them.
-    /// The circles pass in front of the body; the rune marks show only outside it.
-    fn ring(&self, p: P, on_body: bool, c: &mut Rgb) {
+    /// The halo: two full circles in front of the body, with a light that runs
+    /// around them. The twelve runes in the band are glyphs (see `runes`).
+    fn ring(&self, p: P, c: &mut Rgb) {
         let (dx, dy) = (p.0 - RING_C.0, p.1 - RING_C.1);
         let d = (dx * dx + dy * dy).sqrt();
         if !(RINGS[0] - 40.0..RINGS[1] + 40.0).contains(&d) {
             return;
         }
-        let a = dy.atan2(dx);
-        let deg = a.to_degrees();
-        let mut da = a - self.pose.t * 0.7;
-        da = (da + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI;
-        let shimmer = 0.6 + 1.2 * (-(da * da) / 0.12).exp();
+        let shimmer = shimmer(dy.atan2(dx), self.pose.t);
         let color = neon(p.0);
         let w = 6.0f32.max(self.aa);
         for r in RINGS {
             add(c, color, (-((d - r) / w).powi(2)).exp() * shimmer);
-        }
-        // Rune marks: short radial strokes in the band between the rings.
-        if !on_body && (d - 266.0).abs() < 20.0 {
-            let off = ((deg + 360.0).rem_euclid(9.0) - 4.5).abs().to_radians() * d;
-            add(c, color, (-(off / w).powi(2)).exp() * 0.5 * shimmer);
         }
     }
 
@@ -806,7 +856,15 @@ mod tests {
         };
         let (cols, rows) = (env("COLS", 60), env("ROWS", 36));
         let color = std::env::var_os("COLOR").is_some();
-        for line in render(&Layout::new(cols, rows), &Pose::default()).chunks(cols as usize) {
+        for line in render(
+            &Layout::new(cols, rows),
+            &Pose {
+                rune: Some(0),
+                ..Pose::default()
+            },
+        )
+        .chunks(cols as usize)
+        {
             let text: String = line
                 .iter()
                 .map(|c| {
@@ -819,6 +877,24 @@ mod tests {
                 .collect();
             println!("{text}{}", if color { "\x1b[0m" } else { "" });
         }
+    }
+
+    #[test]
+    fn halo_shows_the_twelve_runes_and_lights_one() {
+        let l = Layout::new(80, 40);
+        let pose = Pose {
+            rune: Some(7),
+            ..Pose::default()
+        };
+        let cells = render(&l, &pose);
+        let find = |ch: char| cells.iter().find(|c| c.ch == ch).copied();
+        for (ch, name) in RUNES {
+            assert!(find(ch).is_some(), "rune of {name} is missing");
+        }
+        let bright = |c: Cell| c.rgb.iter().map(|&v| v as u32).sum::<u32>();
+        assert!(bright(find('ᚺ').unwrap()) > bright(find('ᛚ').unwrap()));
+        let dark = render(&l, &Pose { dark: 1.0, ..pose });
+        assert!(dark.iter().all(|c| c.ch == ' ' || c.rgb == [0, 0, 0]));
     }
 
     #[test]

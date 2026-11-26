@@ -16,6 +16,8 @@ use crate::cat::{Cat, FOODS};
 use crate::state;
 
 const MIN_COLS: u16 = 30;
+/// No meal for 8 hours, or never: Laguz, the sad True Self, comes.
+const HUNGRY: &str = "đói meo";
 const MIN_ROWS: u16 = 16;
 const WORDS_AT: art::P = (1575.0, 585.0);
 const WORDS_RGB: [u8; 3] = [255, 140, 220];
@@ -28,7 +30,8 @@ pub fn run() -> io::Result<()> {
         out,
         terminal::EnterAlternateScreen,
         cursor::Hide,
-        event::EnableMouseCapture
+        event::EnableMouseCapture,
+        event::EnableFocusChange
     )?;
     // A panic must not leave the terminal in raw mode.
     let default_hook = std::panic::take_hook();
@@ -44,6 +47,7 @@ pub fn run() -> io::Result<()> {
 fn restore() {
     let _ = execute!(
         io::stdout(),
+        event::DisableFocusChange,
         event::DisableMouseCapture,
         cursor::Show,
         terminal::LeaveAlternateScreen
@@ -96,6 +100,7 @@ impl Room {
                 }
             }
             let now = Instant::now();
+            self.cat.set_hungry(self.hunger() == HUNGRY);
             self.cat
                 .update(now.duration_since(last).as_secs_f32().min(0.5));
             last = now;
@@ -129,6 +134,8 @@ impl Room {
                     _ => {}
                 }
             }
+            Event::FocusGained => self.cat.focus(true),
+            Event::FocusLost => self.cat.focus(false),
             Event::Resize(c, r) => {
                 (self.cols, self.rows) = (c, r);
                 self.shown.clear();
@@ -154,7 +161,7 @@ impl Room {
         match self.fed_at.map(|t| state::now().saturating_sub(t) / 3600) {
             Some(h) if h < 4 => "no bụng",
             Some(h) if h < 8 => "hơi đói",
-            _ => "đói meo",
+            _ => HUNGRY,
         }
     }
 

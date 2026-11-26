@@ -19,6 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Install guide: [docs/how-to/install.md](docs/how-to/install.md).
 - Decisions ADR-0001 to ADR-0004: a terminal application without global input capture, Rust, ASCII art from code with the artwork as the model, and a zsh plugin with a TUI command.
 
+- The halo shows the twelve runes of Helvilette's True Selves (ᛟ Othela at the top, then ᚨ ᛗ ᛒ ᛁ ᚹ ᛚ ᚺ ᚷ ᛊ ᚱ ᛏ). The rune of the True Self that is present glows.
+- Moods from the Rune personalities: Wunjo purrs when petted, Hagalaz grumbles when you wake him, Sowilo swipes when you pet him for too long, Isa sleeps, and Laguz is sad when he has had no meal for 8 hours.
+- Schrödinger Cat: when the terminal comes back into focus after 2 seconds or more, the room goes dark for a moment (Voided Out) and a different True Self is there and says his name.
+
 ### Changed
 
 - The rune halo is a full circle. It passes in front of the body; the rune marks show only outside the body.

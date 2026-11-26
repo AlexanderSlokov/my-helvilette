@@ -21,8 +21,10 @@ zsh plugin, in each terminal (the prompt shows the cat's two blue eyes):
 
 ## Phase 1b: Lore features (target: v0.2.0)
 
+- The twelve runes of the True Selves on the halo.
 - Moods from the Rune personalities (Othela, Wunjo, Hagalaz, Sowilo, Isa, Laguz).
-- Schrödinger Cat: when the terminal does not have focus, the cat can move. Voided Out is the transition effect.
+- Schrödinger Cat: when the terminal comes back into focus, a different True Self is present. Voided Out is the transition effect.
+- Not planned: the Triquetra and the background cats of the artwork. They are too large for a terminal and would make Helvilette smaller.
 
 ## Phase 2: Desktop overlay for Windows and macOS (target: not set)
 

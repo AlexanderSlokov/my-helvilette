@@ -42,6 +42,9 @@ We can use these measurements as a start.
 5. Animate the cat by changes to its geometry: eyes, ears, paws, tail, and head.
 6. Draw the keyboard, the mouse, and the paws with the same method.
    Show words (food names, "purr", "zZ") as text on top of the glyph grid.
+   The twelve runes on the halo (one for each True Self of Helvilette) are also text: Unicode Runic characters, one cell each.
+   A drawn rune would be smaller than a few cells, so it would not be legible.
+   This is the only part of the art that is not ASCII. It needs a font with the Runic block (for example, Noto Sans Runic); without one, the terminal shows boxes.
 7. Do not use terminal image protocols (Kitty graphics, Sixel).
 
 ## Consequences
