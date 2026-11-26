@@ -72,8 +72,7 @@ A cosmetic feature does not justify a security risk for the full session.
 ## Open questions
 
 - **How the cat is present in each terminal.**
-  Possible methods: a shell integration (for example, a zsh hook), a tmux pane or popup, or a small separate terminal window with "Always on Top".
-  A later ADR selects the method.
+  Closed: [ADR-0004](0004-shell-plugin-and-tui.md) selects a zsh plugin and a `meow` TUI command.
 - **Phase 2 input capture.**
   On macOS, global input needs an "Input Monitoring" permission that the user gives to one application.
   On Windows, a low-level keyboard hook needs no special permission.

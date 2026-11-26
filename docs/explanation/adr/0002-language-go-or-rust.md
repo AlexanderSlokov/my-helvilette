@@ -34,7 +34,9 @@ Record the selection in the "Selection" section of this ADR.
 
 ## Selection
 
-Not selected yet.
+**Rust** (selected by the Founder on 2026-11-26).
+
+Use `crossterm` only. Do not use `ratatui`: the application draws its own glyph grid and does not need widgets.
 
 ## Consequences
 

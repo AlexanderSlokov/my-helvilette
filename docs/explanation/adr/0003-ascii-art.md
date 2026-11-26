@@ -1,39 +1,66 @@
-# ADR-0003: Draw the cat with ASCII art
+# ADR-0003: Generate the cat as ASCII art from code, with the artwork as the model
 
 - **Status:** Accepted
-- **Date:** 2026-11-26
+- **Date:** 2026-11-26 (revised two times on the same day; see "History")
 - **Decider:** Founder
 
 ## Context
 
 The terminal application (see [ADR-0001](0001-tui-first-no-global-input.md)) draws text.
-We examined these options for the cat graphics:
 
-- **ASCII art:** Each animation frame is plain text.
-- **Sprite sheets:** Each frame is an image. Somebody must draw or generate the images, and the terminal must support an image protocol (for example, Kitty graphics or Sixel). Support is different in different terminals.
-- **Unicode block or Braille characters:** These look like small pixel art, but each frame is more difficult to edit by hand.
+The cat is Helvilette, as the Founder's artwork shows it: a black cat that sits in a ring of runes, with neon cyan and violet outlines and blue eyes.
+The Founder requires the cat to be **100% this cat**.
+A different or simplified cat is not acceptable.
+
+We examined these methods:
+
+| Method | Result |
+|---|---|
+| Hand-drawn ASCII frames | Rejected. The frames do not show this cat accurately, and each pose needs a new drawing. |
+| Sprite sheets with a terminal image protocol | Rejected. Support for image protocols is different in different terminals. |
+| Sample the artwork at runtime and convert it to glyphs (the naughtian-website method) | Rejected. The application must contain the image, and only the parts that the website draws live (the eyes) can move. |
+| Describe the cat as geometry in code, and convert the geometry to glyphs | **Selected.** |
+
+The naughtian-website repository (`public/helvilette/helvilette-ascii.js`) is a **visual reference** only.
+It shows how this cat looks as ASCII art.
+It also contains measured geometry in pixels of the original 2752x1536 image (eyes, face, rune ring, cat outline, ears, whiskers).
+We can use these measurements as a start.
 
 ## Decision
 
-Draw the cat with ASCII art.
-Keep each animation frame as plain text.
-Do not use sprite sheets or terminal image protocols.
-
-The art is original.
-Do not copy art from other cat applications.
+1. Describe the cat as geometry in code: outlines, ears, eyes, nose, legs, tail, and rune ring.
+   Use the pixel coordinates of the original artwork, so that the code can be compared with the artwork.
+2. Trace the geometry from the artwork. The artwork is the model.
+3. Do not put the artwork in the application.
+   Do not sample the image at runtime.
+4. Convert the geometry to glyphs at runtime:
+   - Calculate the intensity of each part at 2x2 points for each character cell.
+     For neon lines, the intensity decreases with the distance from the line.
+   - Select a line glyph (`/ \ | - _ ' , .`) when the 2x2 points show an edge.
+     Otherwise, select a glyph from the ramp ` .:-=+*#%@`.
+   - Show colors with 24-bit ANSI color codes.
+5. Animate the cat by changes to its geometry: eyes, ears, paws, tail, and head.
+6. Draw the keyboard, the mouse, and the paws with the same method.
+   Show words (food names, "purr", "zZ") as text on top of the glyph grid.
+7. Do not use terminal image protocols (Kitty graphics, Sixel).
 
 ## Consequences
 
 **Good:**
 
-- Frames are easy to create and edit in a text editor.
-- Git shows frame changes as text diffs.
-- All terminals can show the frames.
+- All parts of the cat can move, not only the eyes.
+- The art fits each terminal size, because the geometry is scaled before the glyphs are selected.
+- The application does not contain an image file.
 
 **Bad:**
 
-- The cat has less detail and less expression.
-- The animation changes frame by frame. It is not smooth.
+- We must trace the full geometry from the artwork by hand. This takes time.
+- Accuracy depends on the trace. To compare the trace with the artwork, use a development tool that draws the geometry on the artwork. Do not ship this tool or the artwork.
+- The terminal must support 24-bit color for the correct neon colors.
+- Small details (rune letters, whiskers) are lost at small sizes.
 
-Unicode block characters are a possible upgrade in a later phase.
-A new ADR must approve that change.
+## History
+
+- First version: hand-drawn ASCII frames.
+- Second version: sample the artwork at runtime, as naughtian-website does.
+- Current version: geometry in code, with the artwork as the model. The website is a visual reference only.
