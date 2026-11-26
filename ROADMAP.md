@@ -31,3 +31,23 @@ zsh plugin, in each terminal (the prompt shows the cat's two blue eyes):
 - Parked: the Founder has no Windows or macOS computer for tests.
 - Start only if time permits.
 - A new ADR must approve the input-capture method for each platform before work starts.
+
+## Phase 3: VS Code extension (target: v0.2.0)
+
+Decision: [ADR-0005](docs/explanation/adr/0005-vscode-extension.md).
+
+- Helvilette in a webview view in VS Code (bottom panel by default), drawn by the same Rust core, compiled to WebAssembly.
+- The paws type when the user types in the editor. The extension counts events only, and never keeps the text.
+- When a command fails in the integrated terminal, Hagalaz grumbles.
+- Petting, scratching, the mouse, feeding, and Schrödinger Cat (window focus), as in `meow`.
+- The same state file as `meow`: one cat in VS Code and in the terminal.
+- Install from a `.vsix` file. No Marketplace.
+
+## Under consideration: `meow shell`
+
+Option B in ADR-0005: a PTY host, like a small tmux, that shows the shell and the cat side by side in any terminal.
+All keys pass through it, so the cat can type exactly when the user types, without global input capture.
+
+- For: it works in every terminal, also outside VS Code.
+- Against: it must render every program inside it correctly (vim, htop, mouse modes, colors, resize). A rendering bug breaks the Founder's working terminal.
+- Before work starts, a new ADR must accept these risks.

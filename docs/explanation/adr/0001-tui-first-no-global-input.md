@@ -79,6 +79,10 @@ A cosmetic feature does not justify a security risk for the full session.
   On both platforms, the program does not give a new permission to other processes, but the input group on Linux does.
   The Phase 2 ADR must verify these statements.
 
+## Related decisions
+
+- [ADR-0005](0005-vscode-extension.md) applies the same rule to VS Code: the extension uses only the events that VS Code gives to extensions.
+
 ## References
 
 - [saatvik333/wayland-bongocat](https://github.com/saatvik333/wayland-bongocat)
