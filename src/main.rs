@@ -9,7 +9,12 @@ const ZSH_PLUGIN: &str = include_str!("../shell/meow.zsh");
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+    match args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
         [] => {
             if let Err(e) = tui::run() {
                 eprintln!("meow: {e}");

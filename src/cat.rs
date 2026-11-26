@@ -1,4 +1,4 @@
-//! What Helvilette does: moods, paws, eyes, and how she reacts to the user.
+//! What Helvilette does: moods, paws, eyes, and how he reacts to the user.
 
 use crate::art::{EAR_TIPS, FACE, KEYBOARD, MOUSE_REST, MOUTH, P, PAW_REST, Pose};
 
@@ -126,7 +126,8 @@ impl Cat {
         if matches!(self.mood, Mood::Eating | Mood::Startled) {
             return;
         }
-        let inside = |(c, r): (P, P)| ((p.0 - c.0) / r.0).powi(2) + ((p.1 - c.1) / r.1).powi(2) < 1.0;
+        let inside =
+            |(c, r): (P, P)| ((p.0 - c.0) / r.0).powi(2) + ((p.1 - c.1) / r.1).powi(2) < 1.0;
         if inside(PET_CHIN) {
             self.chin += dist;
             if self.chin > PET_NEEDED * 0.6 {
@@ -156,8 +157,14 @@ impl Cat {
         self.idle += dt;
         self.typed += dt;
         self.on_mouse -= dt;
-        self.paw_up.iter_mut().chain(self.ear.iter_mut()).for_each(|v| *v -= dt);
-        self.key = self.key.map(|(at, left)| (at, left - dt)).filter(|k| k.1 > 0.0);
+        self.paw_up
+            .iter_mut()
+            .chain(self.ear.iter_mut())
+            .for_each(|v| *v -= dt);
+        self.key = self
+            .key
+            .map(|(at, left)| (at, left - dt))
+            .filter(|k| k.1 > 0.0);
         self.pointer = self.pointer.map(|(p, age)| (p, age + dt));
         let decay = (-dt * 0.8).exp();
         self.mouse = (self.mouse.0 * decay, self.mouse.1 * decay);
@@ -181,7 +188,10 @@ impl Cat {
             let next = self.t + 3.5 + self.rand() * 4.0;
             self.blink = (next, self.t, 0.18);
         }
-        self.glitch = self.glitch.map(|(y, off, left)| (y, off, left - dt)).filter(|g| g.2 > 0.0);
+        self.glitch = self
+            .glitch
+            .map(|(y, off, left)| (y, off, left - dt))
+            .filter(|g| g.2 > 0.0);
         if self.t > self.next_glitch {
             let y = 450.0 + self.rand() * 950.0;
             let off = ((self.rand() - 0.5) * 8.0).round() as i32;
@@ -191,10 +201,17 @@ impl Cat {
     }
 
     pub fn pose(&self) -> Pose {
-        let mut p = Pose { t: self.t, ..Pose::default() };
+        let mut p = Pose {
+            t: self.t,
+            ..Pose::default()
+        };
         let (_, start, len) = self.blink;
         let bt = (self.t - start) / len;
-        let blink = if (0.0..=1.0).contains(&bt) { (std::f32::consts::PI * bt).sin() } else { 0.0 };
+        let blink = if (0.0..=1.0).contains(&bt) {
+            (std::f32::consts::PI * bt).sin()
+        } else {
+            0.0
+        };
         p.lid = blink;
 
         match self.mood {
@@ -235,7 +252,10 @@ impl Cat {
         for i in 0..2 {
             if self.ear[i] > 0.0 {
                 let dir = if i == 0 { -1.0 } else { 1.0 };
-                p.ears[i] = (p.ears[i].0 + dir * 8.0 * (self.ear[i] * 60.0).sin(), p.ears[i].1 - 6.0);
+                p.ears[i] = (
+                    p.ears[i].0 + dir * 8.0 * (self.ear[i] * 60.0).sin(),
+                    p.ears[i].1 - 6.0,
+                );
             }
         }
 
@@ -269,7 +289,12 @@ impl Cat {
     pub fn words(&self) -> Option<String> {
         Some(match self.mood {
             Mood::Drowsy => "...".into(),
-            Mood::Asleep => if (self.t * 0.8).fract() < 0.5 { "z Z" } else { "Z z" }.into(),
+            Mood::Asleep => if (self.t * 0.8).fract() < 0.5 {
+                "z Z"
+            } else {
+                "Z z"
+            }
+            .into(),
             Mood::Startled => "!".into(),
             Mood::Petted | Mood::Chin => "purr~".into(),
             Mood::Eating => format!("nom nom · {}", FOODS[self.food?].1),
@@ -277,7 +302,7 @@ impl Cat {
         })
     }
 
-    /// Seconds between frames: slower while she sleeps.
+    /// Seconds between frames: slower while he sleeps.
     pub fn frame_secs(&self) -> f32 {
         if self.mood == Mood::Asleep { 0.1 } else { 0.05 }
     }
@@ -315,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    fn stroking_the_head_makes_her_purr() {
+    fn stroking_the_head_makes_him_purr() {
         let mut cat = Cat::new(1);
         for i in 0..6 {
             let x = if i % 2 == 0 { 1300.0 } else { 1480.0 };
@@ -328,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn mouse_movement_moves_her_mouse_and_paw() {
+    fn mouse_movement_moves_his_mouse_and_paw() {
         let mut cat = Cat::new(1);
         cat.pointer((1000.0, 1000.0));
         cat.pointer((1100.0, 1000.0));

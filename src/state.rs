@@ -15,12 +15,17 @@ pub fn path() -> Option<PathBuf> {
 }
 
 pub fn now() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }
 
 /// Time of the last meal (Unix seconds). `None` if the cat was never fed or the file is not valid.
 pub fn fed_at(path: &Path) -> Option<u64> {
-    fs::read_to_string(path).ok()?.lines().find_map(|l| l.strip_prefix("fed_at=")?.trim().parse().ok())
+    fs::read_to_string(path)
+        .ok()?
+        .lines()
+        .find_map(|l| l.strip_prefix("fed_at=")?.trim().parse().ok())
 }
 
 /// Writes the meal time atomically: other terminals see the old file or the new file, never a part.
