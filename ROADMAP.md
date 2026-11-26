@@ -1,6 +1,6 @@
 # Roadmap
 
-## Phase 1: Terminal cat (target: v0.1.0)
+## Phase 1: Terminal cat (released in v0.1.0)
 
 Decisions: [ADR-0001](docs/explanation/adr/0001-tui-first-no-global-input.md), [ADR-0002](docs/explanation/adr/0002-language-go-or-rust.md), [ADR-0003](docs/explanation/adr/0003-ascii-art.md), [ADR-0004](docs/explanation/adr/0004-shell-plugin-and-tui.md).
 
@@ -19,7 +19,7 @@ zsh plugin, in each terminal (the prompt shows the cat's two blue eyes):
 - The user can pet the head and scratch the chin and ears with the mouse.
 - The user can feed the cat five dishes from the lore: bánh cam nhân đậu xanh, bánh tai yến, chè nước cốt dừa, mỡ cá kho tộ, and bánh cuốn chấm nước mắm.
 
-## Phase 1b: Lore features (target: v0.2.0)
+## Phase 1b: Lore features (released in v0.1.0)
 
 - The twelve runes of the True Selves on the halo.
 - Moods from the Rune personalities (Othela, Wunjo, Hagalaz, Sowilo, Isa, Laguz).
