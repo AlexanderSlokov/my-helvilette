@@ -58,6 +58,17 @@ _meow_redraw() {
   _meow_show
 }
 
+# On Enter, take the eyes off the finished line. Without this, zsh keeps the
+# right prompt on each old command line, and the screen fills with eyes.
+_meow_finish() {
+  [[ $RPROMPT == "$_meow_rprompt" ]] || return
+  RPROMPT=$_meow_base_rprompt
+  _meow_rprompt=$RPROMPT
+  _meow_busy=1
+  zle reset-prompt
+  _meow_busy=0
+}
+
 _meow_precmd() {
   local st=$?
   _meow_last=$EPOCHREALTIME
@@ -90,7 +101,9 @@ _meow_unblink() {
 }
 
 zle -N _meow_redraw
+zle -N _meow_finish
 add-zle-hook-widget line-pre-redraw _meow_redraw
+add-zle-hook-widget line-finish _meow_finish
 add-zsh-hook precmd _meow_precmd
 sched +10 _meow_tick
 _meow_compose

@@ -79,11 +79,16 @@ const BARS: [[f32; 4]; 7] = [
 ];
 const RING_C: P = (1388.0, 714.0);
 const RINGS: [f32; 2] = [232.0, 300.0];
-const SHOULDERS: [P; 2] = [(1355.0, 1110.0), (1490.0, 1060.0)];
-pub const PAW_REST: [P; 2] = [(1352.0, 1294.0), (1428.0, 1294.0)];
+/// Front legs, traced from the artwork: each is one curved line that is thin at
+/// both ends, from the shoulder past the bend to the wrist.
+const SHOULDERS: [P; 2] = [(1360.0, 1115.0), (1490.0, 1062.0)];
+const LEG_BENDS: [P; 2] = [(1350.0, 1215.0), (1450.0, 1195.0)];
+/// Wrists at rest, on the keyboard. The paw curves out from the wrist.
+pub const PAW_REST: [P; 2] = [(1352.0, 1284.0), (1420.0, 1284.0)];
+/// Width of a leg line at its widest point.
+const LEG_W: f32 = 9.0;
 pub const MOUSE_REST: P = (1700.0, 1358.0);
 const MOUSE_R: P = (30.0, 42.0);
-const PAW_R: P = (30.0, 20.0);
 pub const KEYBOARD: [f32; 4] = [1190.0, 1312.0, 1590.0, 1404.0];
 
 /// Everything that moves. `Pose::default()` is the cat at rest.
@@ -103,6 +108,7 @@ pub struct Pose {
     pub pupil: f32,
     /// The point that the eyes look at.
     pub gaze: P,
+    /// Wrists of the front legs.
     pub paws: [P; 2],
     pub mouse: P,
     /// 0 is closed, 1 is open.
@@ -308,6 +314,11 @@ fn add(c: &mut Rgb, color: Rgb, k: f32) {
 }
 
 fn seg_dist(p: P, a: P, b: P) -> f32 {
+    seg_dist_t(p, a, b).0
+}
+
+/// Distance from `p` to the segment, and where the nearest point is (0 at `a`, 1 at `b`).
+fn seg_dist_t(p: P, a: P, b: P) -> (f32, f32) {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let len2 = dx * dx + dy * dy;
     let t = if len2 > 0.0 {
@@ -315,7 +326,10 @@ fn seg_dist(p: P, a: P, b: P) -> f32 {
     } else {
         0.0
     };
-    ((p.0 - a.0 - t * dx).powi(2) + (p.1 - a.1 - t * dy).powi(2)).sqrt()
+    (
+        ((p.0 - a.0 - t * dx).powi(2) + (p.1 - a.1 - t * dy).powi(2)).sqrt(),
+        t,
+    )
 }
 
 fn inside_poly(p: P, poly: &[P]) -> bool {
@@ -369,6 +383,9 @@ struct Stroke {
     pts: Vec<P>,
     closed: bool,
     w: f32,
+    /// Width at each point, for a line that is thin at both ends (a brush stroke).
+    taper: Option<Vec<f32>>,
+    aa: f32,
     paint: Paint,
     bbox: [f32; 4],
 }
@@ -389,8 +406,26 @@ impl Stroke {
             pts,
             closed,
             w: w.max(aa),
+            taper: None,
+            aa,
             paint,
             bbox,
+        }
+    }
+
+    /// An open line that is `w` wide in the middle and thin at both ends.
+    fn brush(pts: Vec<P>, w: f32, aa: f32) -> Self {
+        let n = pts.len();
+        let taper = (0..n)
+            .map(|i| {
+                w * (std::f32::consts::PI * i as f32 / (n - 1) as f32)
+                    .sin()
+                    .max(0.2)
+            })
+            .collect();
+        Stroke {
+            taper: Some(taper),
+            ..Stroke::new(pts, false, w, Paint::Neon, aa)
         }
     }
 
@@ -401,10 +436,19 @@ impl Stroke {
         }
         let n = self.pts.len();
         let segs = if self.closed { n } else { n - 1 };
-        let d = (0..segs)
-            .map(|i| seg_dist(p, self.pts[i], self.pts[(i + 1) % n]))
-            .fold(f32::MAX, f32::min);
-        let k = (-(d / self.w).powi(2)).exp();
+        let k = (0..segs)
+            .map(|i| {
+                let (d, t) = seg_dist_t(p, self.pts[i], self.pts[(i + 1) % n]);
+                match &self.taper {
+                    None => (-(d / self.w).powi(2)).exp(),
+                    // Thin parts are fainter, so the line fades at its ends.
+                    Some(ws) => {
+                        let w = lerp(ws[i], ws[i + 1], t);
+                        (-(d / w.max(self.aa)).powi(2)).exp() * (w / self.aa).min(1.0).sqrt()
+                    }
+                }
+            })
+            .fold(0.0, f32::max);
         if k > 0.01 {
             add(
                 c,
@@ -536,22 +580,24 @@ impl<'a> Scene<'a> {
             ),
         ];
 
+        // Each front leg is a brush line from the shoulder to the wrist, and the
+        // paw is a short curve out from the wrist. When the wrist moves (a lifted
+        // paw, a paw on the mouse), the bend moves half as far, so the leg curves.
         let mut front = Vec::new();
-        for (shoulder, p) in SHOULDERS.into_iter().zip(pose.paws) {
-            front.push(Stroke::new(
-                vec![shoulder, (p.0, p.1 - PAW_R.1 + 3.0)],
-                false,
-                6.0,
-                Paint::Neon,
-                aa,
-            ));
-            front.push(Stroke::new(
-                ellipse_pts(p, PAW_R, 14),
-                true,
-                6.0,
-                Paint::Neon,
-                aa,
-            ));
+        for i in 0..2 {
+            let (s, w, rest) = (SHOULDERS[i], pose.paws[i], PAW_REST[i]);
+            let bend = (
+                LEG_BENDS[i].0 + (w.0 - rest.0) * 0.5,
+                LEG_BENDS[i].1 + (w.1 - rest.1) * 0.5,
+            );
+            front.push(Stroke::brush(curve(s, bend, w), LEG_W, aa));
+            let out = if i == 0 { -1.0 } else { 1.0 };
+            let paw = curve(
+                w,
+                (w.0 + out * 18.0, w.1 + 14.0),
+                (w.0 + out * 48.0, w.1 + 6.0),
+            );
+            front.push(Stroke::brush(paw, LEG_W * 0.8, aa));
         }
 
         Scene {
@@ -569,9 +615,7 @@ impl<'a> Scene<'a> {
 
     fn sample(&self, p: P) -> Rgb {
         let mut c = [0.0; 3];
-        if !inside_poly(p, &self.outline) {
-            self.ring(p, &mut c);
-        }
+        self.ring(p, inside_poly(p, &self.outline), &mut c);
         self.body.iter().for_each(|s| s.add_to(p, &mut c));
         for [x0, y0, x1, y1] in BARS {
             if p.0 >= x0 && p.0 <= x1 && p.1 >= y0 && p.1 <= y1 {
@@ -591,7 +635,7 @@ impl<'a> Scene<'a> {
             self.eye_fill(p, &mut c);
         }
 
-        // In front of the cat: keyboard, mouse, then the legs and paws.
+        // In front of the cat: keyboard, mouse, then the legs.
         let [kx0, ky0, kx1, ky1] = KEYBOARD;
         if p.0 > kx0 && p.0 < kx1 && p.1 > ky0 && p.1 < ky1 {
             c = [0.0; 3];
@@ -609,20 +653,13 @@ impl<'a> Scene<'a> {
             c = [0.0; 3];
         }
         self.mouse.iter().for_each(|s| s.add_to(p, &mut c));
-        if self
-            .pose
-            .paws
-            .iter()
-            .any(|&paw| ellipse_q(p, paw, PAW_R) < 1.0)
-        {
-            c = [0.0; 3];
-        }
         self.front.iter().for_each(|s| s.add_to(p, &mut c));
         c
     }
 
-    /// The rune ring behind the head, open at the bottom, with a light that runs around it.
-    fn ring(&self, p: P, c: &mut Rgb) {
+    /// The rune halo: two full circles with a light that runs around them.
+    /// The circles pass in front of the body; the rune marks show only outside it.
+    fn ring(&self, p: P, on_body: bool, c: &mut Rgb) {
         let (dx, dy) = (p.0 - RING_C.0, p.1 - RING_C.1);
         let d = (dx * dx + dy * dy).sqrt();
         if !(RINGS[0] - 40.0..RINGS[1] + 40.0).contains(&d) {
@@ -630,9 +667,6 @@ impl<'a> Scene<'a> {
         }
         let a = dy.atan2(dx);
         let deg = a.to_degrees();
-        if deg > 20.0 && deg < 160.0 {
-            return;
-        }
         let mut da = a - self.pose.t * 0.7;
         da = (da + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI;
         let shimmer = 0.6 + 1.2 * (-(da * da) / 0.12).exp();
@@ -642,7 +676,7 @@ impl<'a> Scene<'a> {
             add(c, color, (-((d - r) / w).powi(2)).exp() * shimmer);
         }
         // Rune marks: short radial strokes in the band between the rings.
-        if (d - 266.0).abs() < 20.0 {
+        if !on_body && (d - 266.0).abs() < 20.0 {
             let off = ((deg + 360.0).rem_euclid(9.0) - 4.5).abs().to_radians() * d;
             add(c, color, (-(off / w).powi(2)).exp() * 0.5 * shimmer);
         }

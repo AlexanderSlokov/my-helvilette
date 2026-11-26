@@ -18,3 +18,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Shared state: the time of the last meal is in `$XDG_STATE_HOME/meow/state`, so the cat is the same cat in all terminals.
 - Install guide: [docs/how-to/install.md](docs/how-to/install.md).
 - Decisions ADR-0001 to ADR-0004: a terminal application without global input capture, Rust, ASCII art from code with the artwork as the model, and a zsh plugin with a TUI command.
+
+### Changed
+
+- The rune halo is a full circle. It passes in front of the body; the rune marks show only outside the body.
+- The front legs look like the artwork: each leg is one curved line that is thin at both ends, like a brush stroke, and each paw is a short curve out from the wrist. When a paw lifts or goes to the mouse, the leg bends. Before, the legs were straight lines of equal width.
+
+### Fixed
+
+- Old command lines no longer keep a copy of the eyes. The plugin removes the eyes from a line when you press Enter, so only the current prompt shows them.

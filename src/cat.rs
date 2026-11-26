@@ -278,7 +278,8 @@ impl Cat {
             }
         }
         if self.on_mouse > 0.0 && self.mood != Mood::Asleep {
-            p.paws[1] = (p.mouse.0, p.mouse.1 - 20.0);
+            // The wrist rests on the back of the mouse; the paw curves over it.
+            p.paws[1] = (p.mouse.0 - 22.0, p.mouse.1 - 46.0);
         }
         p.key = self.key.map(|(at, _)| at);
         p.glitch = self.glitch.map(|(y, off, _)| (y, off));
@@ -359,7 +360,7 @@ mod tests {
         cat.pointer((1100.0, 1000.0));
         let p = cat.pose();
         assert!(p.mouse.0 > MOUSE_REST.0);
-        assert_eq!(p.paws[1].0, p.mouse.0);
+        assert!((p.paws[1].0 - p.mouse.0).abs() < 30.0);
     }
 
     #[test]
