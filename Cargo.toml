@@ -1,0 +1,13 @@
+[package]
+name = "meow"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Helvilette, a black cat that lives in your terminal"
+
+[dependencies]
+crossterm = "0.29"
+
+[profile.release]
+lto = true
+codegen-units = 1
